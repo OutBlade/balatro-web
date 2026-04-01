@@ -2,40 +2,163 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>&#9824; Balatro GBA</title>
   <link rel="stylesheet" href="https://cdn.emulatorjs.org/stable/data/emulator.min.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-    #game { width: 100%; height: 100vh; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
 
-    #hint {
-      position: fixed; bottom: 14px; left: 14px; z-index: 9999;
-      background: rgba(10,10,22,0.92); border: 1px solid rgba(232,168,56,0.5);
-      border-radius: 8px; padding: 10px 14px;
-      font: 0.75rem/1.7 'Segoe UI', sans-serif; color: #f0e6d3;
-      backdrop-filter: blur(4px); transition: opacity 0.5s; cursor: pointer;
+    /* ── Emulator container ─────────────────────────────────── */
+    #game { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+
+    /* ── Top-right control strip ────────────────────────────── */
+    #top-bar {
+      position: fixed; top: 10px; right: 10px; z-index: 9999;
+      display: flex; gap: 6px; align-items: center;
     }
-    #hint.gone { opacity: 0; pointer-events: none; }
-    #hint b { color: #e8a838; display: block; font-size: 0.65rem; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
-    .k { display: inline-block; background: #222240; border: 1px solid #444; border-radius: 3px; padding: 0 6px; font-family: monospace; color: #e8a838; margin-right: 4px; font-size: 0.72rem; }
+    .top-btn {
+      background: rgba(10,10,22,0.75); border: 1px solid rgba(232,168,56,0.35);
+      border-radius: 6px; padding: 4px 10px; color: #e8a838;
+      font: 700 0.7rem 'Segoe UI', sans-serif; cursor: pointer;
+      user-select: none; letter-spacing: 1px;
+      transition: background 0.15s;
+    }
+    .top-btn:hover { background: rgba(232,168,56,0.2); }
+
+    /* ── PC action buttons (bottom center) ─────────────────── */
+    #pc-actions {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px; z-index: 9000;
+    }
+    .btn-main {
+      padding: 9px 24px; border: none; border-radius: 6px;
+      font: 700 0.88rem 'Segoe UI', sans-serif; letter-spacing: 1px;
+      text-transform: uppercase; cursor: pointer;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.6); user-select: none;
+      transition: transform 0.08s, filter 0.08s;
+    }
+    .btn-main:active { transform: scale(0.93); filter: brightness(0.8); }
+    #btn-play    { background: #2a7a3b; color: #fff; }
+    #btn-discard { background: #8b2020; color: #fff; }
+
+    /* ── Mobile virtual gamepad ─────────────────────────────── */
+    #mobile-pad {
+      display: none; /* shown via JS on touch devices */
+      position: fixed; inset: 0; z-index: 9000;
+      pointer-events: none; /* children opt-in */
+    }
+
+    /* D-Pad */
+    #dpad {
+      position: absolute; bottom: 24px; left: 24px;
+      width: 130px; height: 130px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr; gap: 2px;
+      pointer-events: all;
+    }
+    .dpad-btn {
+      background: rgba(20,20,45,0.82); border: 1px solid rgba(232,168,56,0.4);
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      color: #e8a838; font-size: 1.1rem; cursor: pointer; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.08s;
+    }
+    .dpad-btn:active, .dpad-btn.pressed { background: rgba(232,168,56,0.3); }
+    #dpad-center { background: rgba(10,10,22,0.5) !important; pointer-events: none; }
+
+    /* Right action buttons */
+    #right-btns {
+      position: absolute; bottom: 24px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      pointer-events: all;
+    }
+    #mob-row1, #mob-row2 { display: flex; gap: 8px; }
+
+    .circle-btn {
+      width: 56px; height: 56px; border-radius: 50%;
+      border: none; display: flex; align-items: center; justify-content: center;
+      font: 700 0.75rem 'Segoe UI', sans-serif; color: #fff;
+      cursor: pointer; user-select: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.08s, filter 0.08s;
+    }
+    .circle-btn:active { transform: scale(0.88); filter: brightness(0.8); }
+    #mob-play    { background: #2a7a3b; }
+    #mob-discard { background: #8b2020; }
+    #mob-a       { background: #1a4f8a; }
+    #mob-b       { background: #5a1a8a; }
+
+    /* Start/Select bar */
+    #mob-sys {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 8px; pointer-events: all;
+    }
+    .sys-btn {
+      padding: 6px 14px; border-radius: 20px; border: none;
+      background: rgba(40,40,80,0.85); color: #aaa;
+      font: 0.72rem 'Segoe UI', sans-serif; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sys-btn:active { background: rgba(80,80,140,0.9); color: #fff; }
+
+    /* Hide PC buttons on touch devices (set via JS) */
+    body.touch-device #pc-actions { display: none; }
+    body.touch-device #mobile-pad { display: block; }
   </style>
 </head>
 <body>
 
 <div id="game"></div>
 
-<div id="hint">
-  <b>&#9824; Controls</b>
-  <span class="k">Enter</span> Play Hand<br>
-  <span class="k">Backspace</span> Discard<br>
-  <span class="k">Space</span> Select Card<br>
-  <span class="k">Esc</span> Deselect All<br>
-  <span class="k">&#8593;&#8595;&#8592;&#8594;</span> Navigate
+<!-- Top bar: fullscreen + UI toggle -->
+<div id="top-bar">
+  <div class="top-btn" id="btn-fs" title="Fullscreen (F / F11)">&#9974; FS</div>
+  <div class="top-btn" id="btn-ui">UI</div>
 </div>
 
-<!-- Load EmulatorJS scripts individually to avoid the min.js abort bug -->
+<!-- PC: Play / Discard -->
+<div id="pc-actions">
+  <button class="btn-main" id="btn-play">&#9654; Play Hand</button>
+  <button class="btn-main" id="btn-discard">&#10005; Discard</button>
+</div>
+
+<!-- Mobile virtual gamepad -->
+<div id="mobile-pad">
+  <!-- D-Pad -->
+  <div id="dpad">
+    <div></div>
+    <div class="dpad-btn" id="dp-up">&#9650;</div>
+    <div></div>
+    <div class="dpad-btn" id="dp-left">&#9664;</div>
+    <div id="dpad-center"></div>
+    <div class="dpad-btn" id="dp-right">&#9654;</div>
+    <div></div>
+    <div class="dpad-btn" id="dp-down">&#9660;</div>
+    <div></div>
+  </div>
+
+  <!-- Start / Select -->
+  <div id="mob-sys">
+    <button class="sys-btn" id="mob-select">SELECT</button>
+    <button class="sys-btn" id="mob-start">START</button>
+  </div>
+
+  <!-- Action buttons -->
+  <div id="right-btns">
+    <div id="mob-row1">
+      <button class="circle-btn" id="mob-play">PLAY</button>
+      <button class="circle-btn" id="mob-discard">DISC.</button>
+    </div>
+    <div id="mob-row2">
+      <button class="circle-btn" id="mob-a">A</button>
+      <button class="circle-btn" id="mob-b">B</button>
+    </div>
+  </div>
+</div>
+
+<!-- EmulatorJS (individual scripts to avoid min.js abort bug) -->
 <script src="https://cdn.emulatorjs.org/stable/data/src/emulator.js"></script>
 <script src="https://cdn.emulatorjs.org/stable/data/src/nipplejs.js"></script>
 <script src="https://cdn.emulatorjs.org/stable/data/src/shaders.js"></script>
@@ -46,34 +169,130 @@
 <script src="https://cdn.emulatorjs.org/stable/data/src/compression.js"></script>
 
 <script>
-  // Auto-hide controls hint
-  setTimeout(function(){ document.getElementById('hint').classList.add('gone'); }, 8000);
-  document.getElementById('hint').onclick = function(){ this.classList.add('gone'); };
+// ── GBA button indices ─────────────────────────────────────────────
+// 0=B  1=A  2=Select  3=Start  4=Up  5=Down  6=Left  7=Right  8=L  9=R
+var BTN = { B:0, A:1, SEL:2, START:3, UP:4, DOWN:5, LEFT:6, RIGHT:7, L:8, R:9 };
 
-  // GBA button index → keyCode mapping (Steam-style)
-  // 0=B 1=A 2=Select 3=Start 4=Up 5=Down 6=Left 7=Right 8=L 9=R
-  window.EJS_emulator = new EmulatorJS('#game', {
-    gameUrl:            'balatro-gba.gba',
-    dataPath:           'https://cdn.emulatorjs.org/stable/data/',
-    system:             'mgba',
-    color:              '#e8a838',
-    startOnLoad:        true,
-    defaultControllers: {
-      0: {
-        0:  {"value": "escape",      "value2": "BUTTON_2"},   // B      = Esc
-        1:  {"value": "space",       "value2": "BUTTON_4"},   // A      = Space
-        2:  {"value": "shift",       "value2": "SELECT"},     // Select = Shift
-        3:  {"value": "tab",         "value2": "START"},      // Start  = Tab
-        4:  {"value": "up arrow",    "value2": "DPAD_UP"},    // Up
-        5:  {"value": "down arrow",  "value2": "DPAD_DOWN"},  // Down
-        6:  {"value": "left arrow",  "value2": "DPAD_LEFT"},  // Left
-        7:  {"value": "right arrow", "value2": "DPAD_RIGHT"}, // Right
-        8:  {"value": "enter",       "value2": "LEFT_TOP_SHOULDER"},  // L = Enter (Play)
-        9:  {"value": "backspace",   "value2": "RIGHT_TOP_SHOULDER"}  // R = Backspace (Discard)
-      },
-      1: {}, 2: {}, 3: {}
-    }
-  });
+function tap(btn, ms) {
+  ms = ms || 80;
+  if (!window.EJS_emulator) return;
+  EJS_emulator.simulateInput(0, btn, 1);
+  setTimeout(function(){ EJS_emulator.simulateInput(0, btn, 0); }, ms);
+}
+function hold(btn)    { if (window.EJS_emulator) EJS_emulator.simulateInput(0, btn, 1); }
+function release(btn) { if (window.EJS_emulator) EJS_emulator.simulateInput(0, btn, 0); }
+
+// ── Canvas fullscreen fix (no black bars) ──────────────────────────
+// Scale the GBA game area (3:2) to cover the full viewport
+function fixCanvas() {
+  var canvas = document.querySelector('canvas.ejs_canvas');
+  if (!canvas) { setTimeout(fixCanvas, 200); return; }
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var cw = canvas.width, ch = canvas.height;
+  var gameH = cw * (2 / 3);
+  var scale  = Math.max(vw / cw, vh / gameH);
+  var dW = cw * scale, dH = ch * scale;
+  var top = (vh - gameH * scale) / 2;
+  var p = canvas.parentElement;
+  p.style.cssText = 'width:100%!important;height:100%!important;overflow:hidden!important;position:relative!important;';
+  canvas.style.cssText =
+    'position:absolute!important;' +
+    'width:'  + dW  + 'px!important;' +
+    'height:' + dH  + 'px!important;' +
+    'left:'   + ((vw - dW) / 2) + 'px!important;' +
+    'top:'    + top + 'px!important;';
+}
+window.addEventListener('resize', fixCanvas);
+document.addEventListener('fullscreenchange', function(){ setTimeout(fixCanvas, 150); });
+
+// ── Fullscreen ─────────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(function(){});
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'f' || e.key === 'F' || e.key === 'F11') {
+    e.preventDefault();
+    toggleFullscreen();
+  }
+});
+document.getElementById('btn-fs').addEventListener('click', toggleFullscreen);
+
+// ── UI toggle ──────────────────────────────────────────────────────
+var uiOn = true;
+document.getElementById('btn-ui').addEventListener('click', function(){
+  uiOn = !uiOn;
+  document.getElementById('pc-actions').style.opacity = uiOn ? '' : '0';
+  document.getElementById('pc-actions').style.pointerEvents = uiOn ? '' : 'none';
+  document.getElementById('mobile-pad').style.opacity = uiOn ? '' : '0';
+  document.getElementById('mobile-pad').style.pointerEvents = uiOn ? '' : 'none';
+  this.style.opacity = uiOn ? '1' : '0.4';
+});
+
+// ── Detect touch device ────────────────────────────────────────────
+function detectTouch() {
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+    document.body.classList.add('touch-device');
+  }
+}
+detectTouch();
+
+// ── PC buttons ─────────────────────────────────────────────────────
+document.getElementById('btn-play').addEventListener('mousedown',    function(e){ e.preventDefault(); tap(BTN.L); });
+document.getElementById('btn-discard').addEventListener('mousedown', function(e){ e.preventDefault(); tap(BTN.R); });
+
+// ── Mobile D-Pad (hold support) ────────────────────────────────────
+function bindDpad(id, btn) {
+  var el = document.getElementById(id);
+  el.addEventListener('touchstart',  function(e){ e.preventDefault(); hold(btn); }, {passive:false});
+  el.addEventListener('touchend',    function(e){ e.preventDefault(); release(btn); }, {passive:false});
+  el.addEventListener('touchcancel', function(e){ e.preventDefault(); release(btn); }, {passive:false});
+}
+bindDpad('dp-up',    BTN.UP);
+bindDpad('dp-down',  BTN.DOWN);
+bindDpad('dp-left',  BTN.LEFT);
+bindDpad('dp-right', BTN.RIGHT);
+
+// ── Mobile action buttons ──────────────────────────────────────────
+function bindTap(id, btn) {
+  var el = document.getElementById(id);
+  el.addEventListener('touchstart', function(e){ e.preventDefault(); tap(btn); }, {passive:false});
+}
+bindTap('mob-play',    BTN.L);
+bindTap('mob-discard', BTN.R);
+bindTap('mob-a',       BTN.A);
+bindTap('mob-b',       BTN.B);
+bindTap('mob-select',  BTN.SEL);
+bindTap('mob-start',   BTN.START);
+
+// ── Start emulator ─────────────────────────────────────────────────
+window.EJS_emulator = new EmulatorJS('#game', {
+  gameUrl:     'balatro-gba.gba',
+  dataPath:    'https://cdn.emulatorjs.org/stable/data/',
+  system:      'mgba',
+  color:       '#e8a838',
+  startOnLoad: true,
+  defaultControllers: {
+    0: {
+      0: {"value": "escape",      "value2": "BUTTON_2"},   // B  = Esc
+      1: {"value": "space",       "value2": "BUTTON_4"},   // A  = Space
+      2: {"value": "shift",       "value2": "SELECT"},     // Select
+      3: {"value": "tab",         "value2": "START"},      // Start
+      4: {"value": "up arrow",    "value2": "DPAD_UP"},
+      5: {"value": "down arrow",  "value2": "DPAD_DOWN"},
+      6: {"value": "left arrow",  "value2": "DPAD_LEFT"},
+      7: {"value": "right arrow", "value2": "DPAD_RIGHT"},
+      8: {"value": "enter",       "value2": "LEFT_TOP_SHOULDER"},   // L = Enter
+      9: {"value": "backspace",   "value2": "RIGHT_TOP_SHOULDER"}   // R = Backspace
+    },
+    1: {}, 2: {}, 3: {}
+  }
+});
+
+fixCanvas();
 </script>
 
 </body>
