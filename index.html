@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Balatro GBA – Browser</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --accent: #e8a838;
+      --accent2: #c44b4b;
+      --text: #f0e6d3;
+      --muted: #888;
+      --border: #2a2a4a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header .logo {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    header .subtitle {
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    header .badge {
+      margin-left: auto;
+      background: var(--accent2);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 960px;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #game-container {
+      width: 100%;
+      aspect-ratio: 3/2;
+      background: #000;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* EmulatorJS target */
+    #game {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Controls reference card */
+    .controls-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+    }
+
+    .controls-card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .ctrl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.88rem;
+    }
+
+    .key {
+      background: #2a2a4a;
+      border: 1px solid #444;
+      border-bottom: 3px solid #222;
+      border-radius: 5px;
+      padding: 3px 10px;
+      font-family: monospace;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      min-width: 60px;
+      text-align: center;
+      color: var(--accent);
+    }
+
+    .ctrl-label {
+      color: var(--text);
+    }
+
+    footer {
+      margin-top: auto;
+      padding: 16px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">&#9824; Balatro</div>
+    <div class="subtitle">GBA Fan Demake &nbsp;·&nbsp; Browser Edition</div>
+  </div>
+  <div class="badge">v1.1 Stable</div>
+</header>
+
+<main>
+  <div id="game-container">
+    <div id="game"></div>
+  </div>
+
+  <div class="controls-card">
+    <h2>Keyboard Controls (Steam-Style)</h2>
+    <div class="controls-grid">
+      <div class="ctrl"><span class="key">Enter</span>     <span class="ctrl-label">Hand spielen (Play)</span></div>
+      <div class="ctrl"><span class="key">Backspace</span> <span class="ctrl-label">Karten abwerfen (Discard)</span></div>
+      <div class="ctrl"><span class="key">Space</span>     <span class="ctrl-label">Karte auswählen (Select)</span></div>
+      <div class="ctrl"><span class="key">Escape</span>    <span class="ctrl-label">Alles abwählen (Deselect)</span></div>
+      <div class="ctrl"><span class="key">↑ ↓ ← →</span>  <span class="ctrl-label">Navigation / Menü</span></div>
+      <div class="ctrl"><span class="key">Shift</span>     <span class="ctrl-label">Select-Taste (GBA)</span></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Fan-Projekt &nbsp;·&nbsp;
+  Basiert auf <a href="https://github.com/GBALATRO/balatro-gba" target="_blank">balatro-gba</a> von GBALATRO &nbsp;·&nbsp;
+  Bitte kaufe das Original: <a href="https://store.steampowered.com/app/2379780/Balatro/" target="_blank">Balatro auf Steam</a>
+</footer>
+
+<!-- EmulatorJS -->
+<script>
+  // ── Key-Code-Referenz ────────────────────────────────────────
+  //  GBA-Button-Index → Tastenbelegung (EmulatorJS/mGBA)
+  //  0  = B       → Escape (27)   – Alles abwählen
+  //  1  = A       → Space  (32)   – Karte auswählen / bestätigen
+  //  2  = Select  → Shift  (16)
+  //  3  = Start   → Tab    (9)
+  //  4  = Up      → ArrowUp (38)
+  //  5  = Down    → ArrowDown (40)
+  //  6  = Left    → ArrowLeft (37)
+  //  7  = Right   → ArrowRight (39)
+  //  8  = L       → Enter (13)    – Hand spielen
+  //  9  = R       → Backspace (8) – Abwerfen
+
+  EJS_player       = "#game";
+  EJS_core         = "gba";
+  EJS_gameUrl      = "balatro-gba.gba";
+  EJS_pathtodata   = "https://cdn.emulatorjs.org/stable/data/";
+  EJS_color        = "#e8a838";
+  EJS_startOnLoaded = true;
+  EJS_language     = "de-DE";
+
+  EJS_defaultControls = {
+    "0": {
+      "0":  { "value": 27,  "value2": 0 },  // B      = Escape
+      "1":  { "value": 32,  "value2": 0 },  // A      = Space
+      "2":  { "value": 16,  "value2": 0 },  // Select = Shift
+      "3":  { "value": 9,   "value2": 0 },  // Start  = Tab
+      "4":  { "value": 38,  "value2": 0 },  // Up     = ArrowUp
+      "5":  { "value": 40,  "value2": 0 },  // Down   = ArrowDown
+      "6":  { "value": 37,  "value2": 0 },  // Left   = ArrowLeft
+      "7":  { "value": 39,  "value2": 0 },  // Right  = ArrowRight
+      "8":  { "value": 13,  "value2": 0 },  // L      = Enter  (Play hand)
+      "9":  { "value": 8,   "value2": 0 }   // R      = Backspace (Discard)
+    }
+  };
+</script>
+<script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+
+</body>
+</html>
