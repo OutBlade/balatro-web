@@ -71,19 +71,28 @@ function fixCanvas() {
   var canvas = document.querySelector('canvas.ejs_canvas');
   if (!canvas) { setTimeout(fixCanvas, 200); return; }
   var vw = window.innerWidth, vh = window.innerHeight;
-  var cw = canvas.width, ch = canvas.height;
-  var gameH = cw * (2 / 3);                      // GBA aspect 3:2
-  var scale  = Math.max(vw / cw, vh / gameH);
-  var dW = cw * scale, dH = ch * scale;
-  var top = (vh - gameH * scale) / 2;
+  var cw = canvas.width  || canvas.offsetWidth  || 240;
+  var ch = canvas.height || canvas.offsetHeight || 160;
+  // GBA native: 240×160 (3:2). Use actual ratio for cover-fill.
+  var ar = cw / ch;
+  var scale, dW, dH;
+  if (vw / vh > ar) {
+    // viewport is wider → scale to fill width
+    dW = vw; dH = vw / ar;
+  } else {
+    // viewport is taller → scale to fill height
+    dH = vh; dW = vh * ar;
+  }
+  var left = (vw - dW) / 2;
+  var top  = (vh - dH) / 2;
   var p = canvas.parentElement;
   p.style.cssText = 'width:100%!important;height:100%!important;overflow:hidden!important;position:relative!important;';
   canvas.style.cssText =
     'position:absolute!important;' +
-    'width:'  + dW  + 'px!important;' +
-    'height:' + dH  + 'px!important;' +
-    'left:'   + ((vw - dW) / 2) + 'px!important;' +
-    'top:'    + top + 'px!important;';
+    'width:'  + dW   + 'px!important;' +
+    'height:' + dH   + 'px!important;' +
+    'left:'   + left + 'px!important;' +
+    'top:'    + top  + 'px!important;';
 }
 window.addEventListener('resize', fixCanvas);
 document.addEventListener('fullscreenchange', function () { setTimeout(fixCanvas, 150); });

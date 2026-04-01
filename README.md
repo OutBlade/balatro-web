@@ -46,6 +46,17 @@ Works on **PC**, **Mac**, **Android** and **iOS**.
 
 ---
 
+## 📱 Android APK
+
+Want to play offline on Android?
+Download the APK directly from this repo — no Play Store needed.
+
+[![Download APK](https://img.shields.io/badge/⬇%20Download-Balatro.apk-e8a838?style=for-the-badge&labelColor=0d0d1a)](https://github.com/OutBlade/balatro-web/raw/main/Balatro.apk)
+
+> **Install tip:** Enable *"Install from unknown sources"* in your Android settings before installing.
+
+---
+
 ## ✨ Features
 
 - **Zero setup** — runs entirely in the browser via WebAssembly
