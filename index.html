@@ -22,7 +22,7 @@
   <meta name="twitter:image"      content="https://outblade.github.io/balatro-web/social.png" />
 
   <!-- ── Emulator styles ──────────────────────────────────────── -->
-  <link rel="stylesheet" href="https://cdn.emulatorjs.org/stable/data/emulator.min.css" />
+  <link rel="stylesheet" href="https://cdn.emulatorjs.org/4.2.3/data/emulator.min.css" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,6 +35,14 @@
 
     /* ── Emulator fills viewport ────────────────────────────── */
     #game { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+
+    #version-link {
+      position: fixed; top: 10px; left: 10px; z-index: 9999;
+      padding: 6px 9px; border-radius: 6px;
+      color: #e8a838; background: rgba(10,10,22,0.8);
+      font: 0.72rem 'Segoe UI', sans-serif; text-decoration: none;
+    }
+    #version-link:hover { text-decoration: underline; }
 
     /* ── Fullscreen button (top-right) ──────────────────────── */
     #btn-fs {
@@ -53,58 +61,39 @@
 <body>
 
 <div id="game"></div>
-<div id="btn-fs" title="Fullscreen (F / F11)">&#9974; FS</div>
+<a id="version-link" href="https://github.com/OutBlade/balatro-web#controls" target="_blank" rel="noopener noreferrer">v0.2.2 · Controls &amp; saves</a>
+<button id="btn-fs" type="button" title="Fullscreen (F / F11)" aria-label="Toggle fullscreen">&#9974; FS</button>
 
 <!-- EmulatorJS (individual scripts to bypass min.js abort bug) -->
-<script src="https://cdn.emulatorjs.org/stable/data/src/emulator.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/nipplejs.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/shaders.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/storage.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/gamepad.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/GameManager.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/socket.io.min.js"></script>
-<script src="https://cdn.emulatorjs.org/stable/data/src/compression.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/emulator.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/nipplejs.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/shaders.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/storage.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/gamepad.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/GameManager.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/socket.io.min.js"></script>
+<script src="https://cdn.emulatorjs.org/4.2.3/data/src/compression.js"></script>
 
 <script>
-// ── Canvas cover-fill (removes black bars) ──────────────────────
-function fixCanvas() {
-  var canvas = document.querySelector('canvas.ejs_canvas');
-  if (!canvas) { setTimeout(fixCanvas, 200); return; }
-  var vw = window.innerWidth, vh = window.innerHeight;
-  var cw = canvas.width  || canvas.offsetWidth  || 240;
-  var ch = canvas.height || canvas.offsetHeight || 160;
-  // GBA native: 240×160 (3:2). Use actual ratio for cover-fill.
-  var ar = cw / ch;
-  var scale, dW, dH;
-  if (vw / vh > ar) {
-    // viewport is wider → scale to fill width
-    dW = vw; dH = vw / ar;
-  } else {
-    // viewport is taller → scale to fill height
-    dH = vh; dW = vh * ar;
-  }
-  var left = (vw - dW) / 2;
-  var top  = (vh - dH) / 2;
-  var p = canvas.parentElement;
-  p.style.cssText = 'width:100%!important;height:100%!important;overflow:hidden!important;position:relative!important;';
-  canvas.style.cssText =
-    'position:absolute!important;' +
-    'width:'  + dW   + 'px!important;' +
-    'height:' + dH   + 'px!important;' +
-    'left:'   + left + 'px!important;' +
-    'top:'    + top  + 'px!important;';
-}
-window.addEventListener('resize', fixCanvas);
-document.addEventListener('fullscreenchange', function () { setTimeout(fixCanvas, 150); });
+// Let EmulatorJS preserve the full 3:2 game image, including after a resize.
+// Keep the old filename and save namespace available for existing v1.1 states.
+var legacyVersion = new URLSearchParams(window.location.search).get('version') === '1.1';
+var romVersion = legacyVersion ? '1.1' : '0.2.2';
+document.getElementById('version-link').textContent = 'v' + romVersion + ' · Controls & saves';
 
 // ── Fullscreen (F / F11 / button) ──────────────────────────────
-function toggleFS() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(function () {});
-  } else {
-    document.exitFullscreen();
+async function toggleFS() {
+  try {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen();
+    } else if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+  } catch (error) {
+    console.warn('Fullscreen could not be changed:', error);
   }
 }
+document.getElementById('btn-fs').hidden = !document.fullscreenEnabled;
 document.addEventListener('keydown', function (e) {
   if (e.key === 'f' || e.key === 'F' || e.key === 'F11') {
     e.preventDefault();
@@ -115,29 +104,28 @@ document.getElementById('btn-fs').addEventListener('click', toggleFS);
 
 // ── Start emulator ──────────────────────────────────────────────
 window.EJS_emulator = new EmulatorJS('#game', {
-  gameUrl:     'balatro-gba.gba',
-  dataPath:    'https://cdn.emulatorjs.org/stable/data/',
+  gameUrl:     legacyVersion ? 'balatro-gba.gba' : 'balatro-gba-0.2.2.gba',
+  dataPath:    'https://cdn.emulatorjs.org/4.2.3/data/',
   system:      'mgba',
   color:       '#e8a838',
   startOnLoad: true,
   defaultControllers: {
     0: {
       0: { value: 'escape',      value2: 'BUTTON_2'            }, // B      = Esc
-      1: { value: 'space',       value2: 'BUTTON_4'            }, // A      = Space
       2: { value: 'shift',       value2: 'SELECT'              }, // Select = Shift
       3: { value: 'tab',         value2: 'START'               }, // Start  = Tab
       4: { value: 'up arrow',    value2: 'DPAD_UP'             },
       5: { value: 'down arrow',  value2: 'DPAD_DOWN'           },
       6: { value: 'left arrow',  value2: 'DPAD_LEFT'           },
       7: { value: 'right arrow', value2: 'DPAD_RIGHT'          },
-      8: { value: 'enter',       value2: 'LEFT_TOP_SHOULDER'   }, // L = Enter      (Play Hand)
-      9: { value: 'backspace',   value2: 'RIGHT_TOP_SHOULDER'  }  // R = Backspace  (Discard)
+      8: { value: 'space',      value2: 'BUTTON_1'            }, // A = Space
+      10: { value: 'enter',     value2: 'LEFT_TOP_SHOULDER'   }, // L = Enter (Play Hand)
+      11: { value: 'backspace', value2: 'RIGHT_TOP_SHOULDER'  }  // R = Backspace (Discard)
     },
     1: {}, 2: {}, 3: {}
   }
 });
 
-fixCanvas();
 </script>
 
 </body>
